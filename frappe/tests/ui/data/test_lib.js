@@ -8,8 +8,14 @@ frappe.tests = {
 			() => frappe.set_route('List', doctype),
 			() => frappe.new_doc(doctype),
 			() => {
-				let frm = frappe.quick_entry ? frappe.quick_entry.dialog : cur_frm;
-				return frappe.tests.set_form_values(frm, data);
+				if (frappe.quick_entry)
+				{
+					frappe.quick_entry.dialog.$wrapper.find('.edit-full').click();
+					return frappe.timeout(1);
+				}
+			},
+			() => {
+				return frappe.tests.set_form_values(cur_frm, data);
 			},
 			() => frappe.timeout(1),
 			() => (frappe.quick_entry ? frappe.quick_entry.insert() : cur_frm.save())
@@ -30,6 +36,7 @@ frappe.tests = {
 					}
 				};
 				tasks.push(task);
+				tasks.push(() => frappe.timeout(0.2));
 			}
 		});
 
@@ -58,6 +65,7 @@ frappe.tests = {
 							return frappe.model.set_value(grid_row.doc.doctype,
 								grid_row.doc.name, child_key, child_value[child_key]);
 						});
+						grid_value_tasks.push(() => frappe.timeout(0.2));
 					}
 				});
 
@@ -90,8 +98,7 @@ frappe.tests = {
 				});
 
 				return frappe.run_serially(tasks);
-			}
-		]);
+			}]);
 	},
 	click_page_head_item: (text) => {
 		// Method to items present on the page header like New, Save, Delete etc.
@@ -99,70 +106,60 @@ frappe.tests = {
 		return frappe.run_serially([
 			() => {
 				if (text == "Menu"){
-					$("span.menu-btn-group-label:contains('Menu'):visible").click();
+					$(`span.menu-btn-group-label:contains('Menu'):visible`).click();
 				} else if (text == "Refresh") {
-					$(".btn-secondary:contains('Refresh'):visible").click();
+					$(`.btn-secondary:contains('Refresh'):visible`).click();
 				} else if (possible_texts.includes(text)) {
-					$(".btn-primary:contains("+text+"):visible").click();
+					$(`.btn-primary:contains("${text}"):visible`).click();
 				}
 			},
-			() => frappe.timeout(0.3)
+			() => frappe.timeout(1)
 		]);
 	},
 	click_dropdown_item: (text) => {
 		// Method to click dropdown elements
 		return frappe.run_serially([
 			() => {
-				let li = $(".dropdown-menu li:contains("+text+"):visible").get(0);
-				$(li).find('a')[0].click();
+				let li = $(`.dropdown-menu li:contains("${text}"):visible`).get(0);
+				$(li).find(`a`).click();
 			},
-			() => frappe.timeout(0.3)
-		]);
-	},
-	click_navbar_item: (text) => {
-		// Method to click an elements present on the navbar
-		return frappe.run_serially([
-			() => {
-				if (text == "Help"){
-					$(".dropdown-help .dropdown-toggle:visible").click();
-				}
-				else if (text == "navbar_user"){
-					$(".dropdown-navbar-user .dropdown-toggle:visible").click();
-				}
-				else if (text == "Notification"){
-					$(".navbar-new-comments").click();
-				}
-				else if (text == "Home"){
-					$(".navbar-home:contains('Home'):visible")[0].click();
-				}
-			},
-			() => frappe.timeout(0.3)
-		]);
-	},
-	click_generic_text: (text, tag='a') => {
-		// Method to click an element by its name
-		return frappe.run_serially([
-			() => $(tag+":contains("+text+"):visible")[0].click(),
-			() => frappe.timeout(0.3)
+			() => frappe.timeout(1)
 		]);
 	},
 	click_desktop_icon: (text) => {
 		// Method to click the desktop icons on the Desk, by their name
 		return frappe.run_serially([
 			() => $("#icon-grid > div > div.app-icon[title="+text+"]").click(),
-			() => frappe.timeout(0.3)
+			() => frappe.timeout(1)
 		]);
 	},
 	is_visible: (text, tag='a') => {
 		// Method to check the visibility of an element
-		return $(tag+":contains("+text+")").is(':visible');
+		return $(`${tag}:contains("${text}")`).is(`:visible`);
 	},
 	click_button: function(text) {
-		$(`.btn:contains("${text}"):visible`).click();
-		return frappe.timeout(0.3);
+		let element = $(`.btn:contains("${text}"):visible`);
+		if(!element.length) {
+			throw `did not find any button containing ${text}`;
+		}
+		element.click();
+		return frappe.timeout(0.5);
 	},
 	click_link: function(text) {
-		$(`a:contains("${text}"):visible`).click();
-		return frappe.timeout(0.3);
-	}
+		let element = $(`a:contains("${text}"):visible`);
+		if(!element.length) {
+			throw `did not find any link containing ${text}`;
+		}
+		element.get(0).click();
+		return frappe.timeout(0.5);
+	},
+	set_control: function(fieldname, value) {
+		let control = $(`.form-control[data-fieldname="${fieldname}"]:visible`);
+		if(!control.length) {
+			throw `did not find any control with fieldname ${fieldname}`;
+		}
+		control.val(value).trigger('change');
+		return frappe.timeout(0.5);
+	},
+
 };
