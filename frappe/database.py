@@ -18,10 +18,10 @@ import redis
 import frappe.model.meta
 from frappe.utils import now, get_datetime, cstr
 from frappe import _
-from types import StringType, UnicodeType
+from six import text_type, binary_type, string_types, integer_types
 from frappe.utils.global_search import sync_global_search
 from frappe.model.utils.link_count import flush_local_link_count
-from six import iteritems
+from six import iteritems, text_type
 
 
 class Database:
@@ -69,8 +69,8 @@ class Database:
 				use_unicode=True, charset='utf8mb4')
 		self._conn.converter[246]=float
 		self._conn.converter[12]=get_datetime
-		self._conn.encoders[UnicodeWithAttrs] = self._conn.encoders[UnicodeType]
-		self._conn.encoders[DateTimeDeltaType] = self._conn.encoders[StringType]
+		self._conn.encoders[UnicodeWithAttrs] = self._conn.encoders[text_type]
+		self._conn.encoders[DateTimeDeltaType] = self._conn.encoders[binary_type]
 
 		MYSQL_OPTION_MULTI_STATEMENTS_OFF = 1
 		self._conn.set_server_option(MYSQL_OPTION_MULTI_STATEMENTS_OFF)
@@ -260,7 +260,7 @@ class Database:
 				else:
 					val = r[i]
 
-				if as_utf8 and type(val) is unicode:
+				if as_utf8 and type(val) is text_type:
 					val = val.encode('utf-8')
 				row_dict[self._cursor.description[i][0]] = val
 			ret.append(row_dict)
@@ -270,7 +270,7 @@ class Database:
 		"""Returns true if the first row in the result has a Date, Datetime, Long Int."""
 		if result and result[0]:
 			for v in result[0]:
-				if isinstance(v, (datetime.date, datetime.timedelta, datetime.datetime, long)):
+				if isinstance(v, (datetime.date, datetime.timedelta, datetime.datetime, integer_types)):
 					return True
 				if formatted and isinstance(v, (int, float)):
 					return True
@@ -287,18 +287,18 @@ class Database:
 
 		from frappe.utils import formatdate, fmt_money
 
-		if isinstance(v, (datetime.date, datetime.timedelta, datetime.datetime, long)):
+		if isinstance(v, (datetime.date, datetime.timedelta, datetime.datetime, integer_types)):
 			if isinstance(v, datetime.date):
-				v = unicode(v)
+				v = text_type(v)
 				if formatted:
 					v = formatdate(v)
 
 			# time
 			elif isinstance(v, (datetime.timedelta, datetime.datetime)):
-				v = unicode(v)
+				v = text_type(v)
 
 			# long
-			elif isinstance(v, long):
+			elif isinstance(v, integer_types):
 				v=int(v)
 
 		# convert to strings... (if formatted)
@@ -306,7 +306,7 @@ class Database:
 			if isinstance(v, float):
 				v=fmt_money(v)
 			elif isinstance(v, int):
-				v = unicode(v)
+				v = text_type(v)
 
 		return v
 
@@ -321,7 +321,7 @@ class Database:
 					val = self.convert_to_simple_type(c, formatted)
 				else:
 					val = c
-				if as_utf8 and type(val) is unicode:
+				if as_utf8 and type(val) is text_type:
 					val = val.encode('utf-8')
 				nr.append(val)
 			nres.append(nr)
@@ -333,7 +333,7 @@ class Database:
 		for r in res:
 			nr = []
 			for c in r:
-				if type(c) is unicode:
+				if type(c) is text_type:
 					c = c.encode('utf-8')
 					nr.append(self.convert_to_simple_type(c, formatted))
 			nres.append(nr)
@@ -386,7 +386,7 @@ class Database:
 
 			conditions.append(condition)
 
-		if isinstance(filters, basestring):
+		if isinstance(filters, string_types):
 			filters = { "name": filters }
 
 		for f in filters:
@@ -451,7 +451,7 @@ class Database:
 			user = frappe.db.get_values("User", "test@example.com", "*")[0]
 		"""
 		out = None
-		if cache and isinstance(filters, basestring) and \
+		if cache and isinstance(filters, string_types) and \
 			(doctype, filters, fieldname) in self.value_cache:
 			return self.value_cache[(doctype, filters, fieldname)]
 
@@ -463,7 +463,7 @@ class Database:
 		else:
 			fields = fieldname
 			if fieldname!="*":
-				if isinstance(fieldname, basestring):
+				if isinstance(fieldname, string_types):
 					fields = [fieldname]
 				else:
 					fields = fieldname
@@ -483,7 +483,7 @@ class Database:
 			else:
 				out = self.get_values_from_single(fields, filters, doctype, as_dict, debug, update)
 
-		if cache and isinstance(filters, basestring):
+		if cache and isinstance(filters, string_types):
 			self.value_cache[(doctype, filters, fieldname)] = out
 
 		return out
@@ -600,8 +600,9 @@ class Database:
 
 		order_by = ("order by " + order_by) if order_by else ""
 
-		r = self.sql("select {0} from `tab{1}` where {2} {3}".format(fl, doctype,
-			conditions, order_by), values, as_dict=as_dict, debug=debug, update=update)
+		r = self.sql("select {0} from `tab{1}` {2} {3} {4}"
+			.format(fl, doctype, "where" if conditions else "", conditions, order_by), values, 
+			as_dict=as_dict, debug=debug, update=update)
 
 		return r
 
@@ -788,7 +789,7 @@ class Database:
 
 		:param dt: DocType name.
 		:param dn: Document name or filter dict."""
-		if isinstance(dt, basestring):
+		if isinstance(dt, string_types):
 			if dt!="DocType" and dt==dn:
 				return True # single always exists (!)
 			try:
@@ -853,7 +854,7 @@ class Database:
 				add index `%s`(%s)""" % (doctype, index_name, ", ".join(fields)))
 
 	def add_unique(self, doctype, fields, constraint_name=None):
-		if isinstance(fields, basestring):
+		if isinstance(fields, string_types):
 			fields = [fields]
 		if not constraint_name:
 			constraint_name = "unique_" + "_".join(fields)
@@ -880,10 +881,10 @@ class Database:
 
 	def escape(self, s, percent=True):
 		"""Excape quotes and percent in given string."""
-		if isinstance(s, unicode):
+		if isinstance(s, text_type):
 			s = (s or "").encode("utf-8")
 
-		s = unicode(MySQLdb.escape_string(s), "utf-8").replace("`", "\\`")
+		s = text_type(MySQLdb.escape_string(s), "utf-8").replace("`", "\\`")
 
 		# NOTE separating % escape, because % escape should only be done when using LIKE operator
 		# or when you use python format string to generate query that already has a %s

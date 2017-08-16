@@ -12,8 +12,9 @@ from babel.core import UnknownLocaleError
 from dateutil import parser
 from num2words import num2words
 from six.moves import html_parser as HTMLParser
+from six.moves.urllib.parse import quote
 from html2text import html2text
-from six import iteritems
+from six import iteritems, text_type, string_types, integer_types
 
 DATE_FORMAT = "%Y-%m-%d"
 TIME_FORMAT = "%H:%M:%S.%f"
@@ -62,7 +63,7 @@ def get_datetime(datetime_str=None):
 		return parser.parse(datetime_str)
 
 def to_timedelta(time_str):
-	if isinstance(time_str, basestring):
+	if isinstance(time_str, string_types):
 		t = parser.parse(time_str)
 		return datetime.timedelta(hours=t.hour, minutes=t.minute, seconds=t.second, microseconds=t.microsecond)
 
@@ -79,7 +80,7 @@ def add_to_date(date, years=0, months=0, days=0, hours=0, as_string=False, as_da
 	if hours:
 		as_datetime = True
 
-	if isinstance(date, basestring):
+	if isinstance(date, string_types):
 		as_string = True
 		if " " in date:
 			as_datetime = True
@@ -195,7 +196,7 @@ def get_time(time_str):
 		return parser.parse(time_str).time()
 
 def get_datetime_str(datetime_obj):
-	if isinstance(datetime_obj, basestring):
+	if isinstance(datetime_obj, string_types):
 		datetime_obj = get_datetime(datetime_obj)
 
 	return datetime_obj.strftime(DATETIME_FORMAT)
@@ -260,7 +261,7 @@ def has_common(l1, l2):
 
 def flt(s, precision=None):
 	"""Convert to float (ignore commas)"""
-	if isinstance(s, basestring):
+	if isinstance(s, string_types):
 		s = s.replace(',','')
 
 	try:
@@ -329,12 +330,12 @@ def encode(obj, encoding="utf-8"):
 	if isinstance(obj, list):
 		out = []
 		for o in obj:
-			if isinstance(o, unicode):
+			if isinstance(o, text_type):
 				out.append(o.encode(encoding))
 			else:
 				out.append(o)
 		return out
-	elif isinstance(obj, unicode):
+	elif isinstance(obj, text_type):
 		return obj.encode(encoding)
 	else:
 		return obj
@@ -342,10 +343,10 @@ def encode(obj, encoding="utf-8"):
 def parse_val(v):
 	"""Converts to simple datatypes from SQL query results"""
 	if isinstance(v, (datetime.date, datetime.datetime)):
-		v = unicode(v)
+		v = text_type(v)
 	elif isinstance(v, datetime.timedelta):
-		v = ":".join(unicode(v).split(":")[:2])
-	elif isinstance(v, long):
+		v = ":".join(text_type(v).split(":")[:2])
+	elif isinstance(v, integer_types):
 		v = int(v)
 	return v
 
@@ -521,7 +522,7 @@ def pretty_date(iso_datetime):
 	if not iso_datetime: return ''
 	import math
 
-	if isinstance(iso_datetime, basestring):
+	if isinstance(iso_datetime, string_types):
 		iso_datetime = datetime.datetime.strptime(iso_datetime, DATETIME_FORMAT)
 	now_dt = datetime.datetime.strptime(now(), DATETIME_FORMAT)
 	dt_diff = now_dt - iso_datetime
@@ -570,7 +571,7 @@ def comma_and(some_list):
 def comma_sep(some_list, pattern):
 	if isinstance(some_list, (list, tuple)):
 		# list(some_list) is done to preserve the existing list
-		some_list = [unicode(s) for s in list(some_list)]
+		some_list = [text_type(s) for s in list(some_list)]
 		if not some_list:
 			return ""
 		elif len(some_list) == 1:
@@ -584,7 +585,7 @@ def comma_sep(some_list, pattern):
 def new_line_sep(some_list):
 	if isinstance(some_list, (list, tuple)):
 		# list(some_list) is done to preserve the existing list
-		some_list = [unicode(s) for s in list(some_list)]
+		some_list = [text_type(s) for s in list(some_list)]
 		if not some_list:
 			return ""
 		elif len(some_list) == 1:
@@ -777,9 +778,11 @@ def expand_relative_urls(html):
 
 	def _expand_relative_urls(match):
 		to_expand = list(match.groups())
-		if not to_expand[2].startswith("/"):
-			to_expand[2] = "/" + to_expand[2]
-		to_expand.insert(2, url)
+
+		if not to_expand[2].startswith('mailto'):
+			if not to_expand[2].startswith("/"):
+				to_expand[2] = "/" + to_expand[2]
+			to_expand.insert(2, url)
 
 		if 'url' in to_expand[0] and to_expand[1].startswith('(') and to_expand[-1].endswith(')'):
 			# background-image: url('/assets/...') - workaround for wkhtmltopdf print-media-type
@@ -795,7 +798,7 @@ def expand_relative_urls(html):
 	return html
 
 def quoted(url):
-	return cstr(urllib.quote(encode(url), safe=b"~@#$&()*!+=:;,.?/'"))
+	return cstr(quote(encode(url), safe=b"~@#$&()*!+=:;,.?/'"))
 
 def quote_urls(html):
 	def _quote_url(match):

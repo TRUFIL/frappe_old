@@ -8,7 +8,7 @@ import frappe.model
 import frappe.utils
 import json, os
 
-from six import iteritems
+from six import iteritems, string_types
 
 '''
 Handle RESTful requests that are mapped to the `/api/resource` route.
@@ -61,15 +61,20 @@ def get_value(doctype, fieldname, filters=None, as_dict=True, debug=False):
 
 	try:
 		filters = json.loads(filters)
-	except ValueError:
-		# name passed, not json
+	except (TypeError, ValueError):
+		# filters are not passesd, not json
 		pass
 
 	try:
 		fieldname = json.loads(fieldname)
-	except ValueError:
+	except (TypeError, ValueError):
 		# name passed, not json
 		pass
+
+	# check whether the used filters were really parseable and usable
+	# and did not just result in an empty string or dict
+	if not filters:
+		filters = None
 
 	return frappe.db.get_value(doctype, filters, fieldname, as_dict=as_dict, debug=debug)
 
@@ -87,7 +92,7 @@ def set_value(doctype, name, fieldname, value=None):
 
 	if not value:
 		values = fieldname
-		if isinstance(fieldname, basestring):
+		if isinstance(fieldname, string_types):
 			try:
 				values = json.loads(fieldname)
 			except ValueError:
@@ -113,7 +118,7 @@ def insert(doc=None):
 	'''Insert a document
 
 	:param doc: JSON or dict object to be inserted'''
-	if isinstance(doc, basestring):
+	if isinstance(doc, string_types):
 		doc = json.loads(doc)
 
 	if doc.get("parent") and doc.get("parenttype"):
@@ -131,7 +136,7 @@ def insert_many(docs=None):
 	'''Insert multiple documents
 
 	:param docs: JSON or list of dict objects to be inserted in one request'''
-	if isinstance(docs, basestring):
+	if isinstance(docs, string_types):
 		docs = json.loads(docs)
 
 	out = []
@@ -157,7 +162,7 @@ def save(doc):
 	'''Update (save) an existing document
 
 	:param doc: JSON or dict object with the properties of the document to be updated'''
-	if isinstance(doc, basestring):
+	if isinstance(doc, string_types):
 		doc = json.loads(doc)
 
 	doc = frappe.get_doc(doc).save()
@@ -178,7 +183,7 @@ def submit(doc):
 	'''Submit a document
 
 	:param doc: JSON or dict object to be submitted remotely'''
-	if isinstance(doc, basestring):
+	if isinstance(doc, string_types):
 		doc = json.loads(doc)
 
 	doc = frappe.get_doc(doc)
@@ -216,7 +221,7 @@ def make_width_property_setter(doc):
 	'''Set width Property Setter
 
 	:param doc: Property Setter document with `width` property'''
-	if isinstance(doc, basestring):
+	if isinstance(doc, string_types):
 		doc = json.loads(doc)
 	if doc["doctype"]=="Property Setter" and doc["property"]=="width":
 		frappe.get_doc(doc).insert(ignore_permissions = True)
@@ -291,3 +296,8 @@ def get_js(items):
 		out.append(code)
 
 	return out
+
+@frappe.whitelist(allow_guest=True)
+def get_time_zone():
+	'''Returns default time zone'''
+	return {"time_zone": frappe.defaults.get_defaults().get("time_zone")}

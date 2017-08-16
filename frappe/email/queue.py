@@ -15,6 +15,7 @@ from frappe.utils import get_url, nowdate, encode, now_datetime, add_days, split
 from frappe.utils.file_manager import get_file
 from rq.timeouts import JobTimeoutException
 from frappe.utils.scheduler import log
+from six import text_type, string_types
 
 class EmailLimitCrossedError(frappe.ValidationError): pass
 
@@ -54,10 +55,10 @@ def send(recipients=None, sender=None, subject=None, message=None, text_content=
 	if not recipients and not cc:
 		return
 
-	if isinstance(recipients, basestring):
+	if isinstance(recipients, string_types):
 		recipients = split_emails(recipients)
 
-	if isinstance(cc, basestring):
+	if isinstance(cc, string_types):
 		cc = split_emails(cc)
 
 	if isinstance(send_after, int):
@@ -440,10 +441,10 @@ def send_one(email, smtpserver=None, auto_commit=True, now=False, from_test=Fals
 
 		if any("Sent" == s.status for s in recipients_list):
 			frappe.db.sql("""update `tabEmail Queue` set status='Partially Errored', error=%s where name=%s""",
-				(unicode(e), email.name), auto_commit=auto_commit)
+				(text_type(e), email.name), auto_commit=auto_commit)
 		else:
 			frappe.db.sql("""update `tabEmail Queue` set status='Error', error=%s
-where name=%s""", (unicode(e), email.name), auto_commit=auto_commit)
+where name=%s""", (text_type(e), email.name), auto_commit=auto_commit)
 
 		if email.communication:
 			frappe.get_doc('Communication', email.communication).set_delivery_status(commit=auto_commit)
@@ -454,7 +455,7 @@ where name=%s""", (unicode(e), email.name), auto_commit=auto_commit)
 
 		else:
 			# log to Error Log
-			log('frappe.email.queue.flush', unicode(e))
+			log('frappe.email.queue.flush', text_type(e))
 
 def prepare_message(email, recipient, recipients_list):
 	message = email.message
@@ -470,7 +471,7 @@ def prepare_message(email, recipient, recipients_list):
 		pass
 	else:
 		if email.expose_recipients == "footer":
-			if isinstance(email.show_as_cc, basestring):
+			if isinstance(email.show_as_cc, string_types):
 				email.show_as_cc = email.show_as_cc.split(",")
 			email_sent_to = [r.recipient for r in recipients_list]
 			email_sent_cc = ", ".join([e for e in email_sent_to if e in email.show_as_cc])

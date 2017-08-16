@@ -6,6 +6,7 @@ import frappe, os
 
 from frappe.website.utils import can_cache, delete_page_cache, extract_title
 from frappe.model.document import get_controller
+from six import text_type
 
 def resolve_route(path):
 	"""Returns the page route object based on searching in pages and generators.
@@ -34,7 +35,6 @@ def get_page_context(path):
 		page_context = make_page_context(path)
 		if can_cache(page_context.no_cache):
 			page_context_cache[frappe.local.lang] = page_context
-
 			frappe.cache().hset("page_context", path, page_context_cache)
 
 	return page_context
@@ -245,13 +245,13 @@ def setup_source(page_info):
 		js_path = os.path.join(page_info.basepath, (page_info.basename or 'index') + '.js')
 		if os.path.exists(js_path):
 			if not '{% block script %}' in html:
-				js = unicode(open(js_path, 'r').read(), 'utf-8')
+				js = text_type(open(js_path, 'r').read(), 'utf-8')
 				html += '\n{% block script %}<script>' + js + '\n</script>\n{% endblock %}'
 
 		css_path = os.path.join(page_info.basepath, (page_info.basename or 'index') + '.css')
 		if os.path.exists(css_path):
 			if not '{% block style %}' in html:
-				css = unicode(open(css_path, 'r').read(), 'utf-8')
+				css = text_type(open(css_path, 'r').read(), 'utf-8')
 				html += '\n{% block style %}\n<style>\n' + css + '\n</style>\n{% endblock %}'
 
 	page_info.source = html
@@ -348,9 +348,9 @@ def sync_global_search():
 							frappe.flags.update_global_search.append(
 								dict(doctype='Static Web Page',
 									name=route,
-									content=frappe.unicode(text),
+									content=text_type(text),
 									published=1,
-									title=soup.title.string,
+									title=text_type(soup.title.string),
 									route=route))
 
 						except Exception:
