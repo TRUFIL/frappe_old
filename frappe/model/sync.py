@@ -41,7 +41,6 @@ def sync_for(app_name, force=0, sync_everything = False, verbose=False, reset_pe
 	l = len(files)
 	if l:
 		for i, doc_path in enumerate(files):
-			print "Module: {0}, DocType: {1}, Name: {2}".format(module_name, doctype, name)
 
 			import_file_by_path(doc_path, force=force, ignore_version=True,
 				reset_permissions=reset_permissions, for_sync=True)

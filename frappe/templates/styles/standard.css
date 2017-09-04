@@ -133,8 +133,8 @@ table.no-border, table.no-border td {
 }
 
 .print-format td, .print-format th {
-	vertical-align: top !important;
-	padding: 6px !important;
+	vertical-align: middle !important;
+	padding: 2px !important;
 }
 
 .print-format p {
