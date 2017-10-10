@@ -48,7 +48,7 @@ frappe.views.CommunicationComposer = Class.extend({
 	get_fields: function() {
 		var fields= [
 			{label:__("To"), fieldtype:"Data", reqd: 0, fieldname:"recipients",length:524288},
-			{fieldtype: "Section Break", collapsible: 1, label: "CC & Standard Reply"},
+			{fieldtype: "Section Break", collapsible: 1, label: __("CC & Standard Reply")},
 			{label:__("CC"), fieldtype:"Data", fieldname:"cc", length:524288},
 			{label:__("Standard Reply"), fieldtype:"Link", options:"Standard Reply",
 				fieldname:"standard_reply"},
@@ -63,7 +63,7 @@ frappe.views.CommunicationComposer = Class.extend({
 			{label:__("Send As Email"), fieldtype:"Check",
 				fieldname:"send_email"},
 			{label:__("Send me a copy"), fieldtype:"Check",
-				fieldname:"send_me_a_copy"},
+				fieldname:"send_me_a_copy", 'default': frappe.boot.user.send_me_a_copy},
 			{label:__("Send Read Receipt"), fieldtype:"Check",
 				fieldname:"send_read_receipt"},
 			{label:__("Communication Medium"), fieldtype:"Select",
@@ -149,7 +149,12 @@ frappe.views.CommunicationComposer = Class.extend({
 				if (this.frm.subject_field && this.frm.doc[this.frm.subject_field]) {
 					this.subject = __("Re: {0}", [this.frm.doc[this.frm.subject_field]]);
 				} else {
-					this.subject = __(this.frm.doctype) + ': ' + this.frm.docname;
+					let title = this.frm.doc.name;
+					if(this.frm.meta.title_field && this.frm.doc[this.frm.meta.title_field]
+						&& this.frm.doc[this.frm.meta.title_field] != this.frm.doc.name) {
+						title = `${this.frm.doc[this.frm.meta.title_field]} (#${this.frm.doc.name})`;
+					}
+					this.subject = `${__(this.frm.doctype)}: ${title}`;
 				}
 			}
 		}
@@ -309,7 +314,8 @@ frappe.views.CommunicationComposer = Class.extend({
 
 		var args = {
 			args: {
-				from_form: 1,folder:"Home/Attachments"
+				from_form: 1,
+				folder:"Home/Attachments"
 			},
 			callback: function(attachment, r) { me.attachments.push(attachment); },
 			max_width: null,
@@ -331,10 +337,10 @@ frappe.views.CommunicationComposer = Class.extend({
 		}
 
 		$("<h6 class='text-muted add-attachment' style='margin-top: 12px; cursor:pointer;'>"
-				+__("Select Attachments")+"</h6><div class='attach-list'></div>\
-				<p class='add-more-attachments'>\
-				<a class='text-muted small'><i class='octicon octicon-plus' style='font-size: 12px'></i> "
-				+__("Add Attachment")+"</a></p>").appendTo(attach.empty())
+			+__("Select Attachments")+"</h6><div class='attach-list'></div>\
+			<p class='add-more-attachments'>\
+			<a class='text-muted small'><i class='octicon octicon-plus' style='font-size: 12px'></i> "
+			+__("Add Attachment")+"</a></p>").appendTo(attach.empty())
 		attach.find(".add-more-attachments a").on('click',this,function() {
 			me.upload = frappe.ui.get_upload_dialog(args);
 		})
@@ -375,7 +381,14 @@ frappe.views.CommunicationComposer = Class.extend({
 			$(fields.select_print_format.wrapper).toggle(true);
 		}
 
-		$(fields.send_email.input).prop("checked", true)
+		$(fields.send_email.input).prop("checked", true);
+
+		$(fields.send_me_a_copy.input).on('click', () => {
+			// update send me a copy (make it sticky)
+			let val = fields.send_me_a_copy.get_value();
+			frappe.db.set_value('User', frappe.session.user, 'send_me_a_copy', val);
+			frappe.boot.user.send_me_a_copy = val;
+		});
 
 		// toggle print format
 		$(fields.send_email.input).click(function() {
@@ -502,7 +515,7 @@ frappe.views.CommunicationComposer = Class.extend({
 					}
 					if (cur_frm) {
 						// clear input
-						cur_frm.timeline.input.val("");
+						cur_frm.timeline.input && cur_frm.timeline.input.val("");
 						cur_frm.reload_doc();
 					}
 
@@ -559,6 +572,10 @@ frappe.views.CommunicationComposer = Class.extend({
 
 		if(last_email) {
 			var last_email_content = last_email.original_comment || last_email.content;
+
+			last_email_content = last_email_content
+				.replace(/&lt;meta[\s\S]*meta&gt;/g, '') // remove <meta> tags
+				.replace(/&lt;style[\s\S]*&lt;\/style&gt;/g, ''); // // remove <style> tags
 
 			content = '<div><br></div>'
 				+ reply

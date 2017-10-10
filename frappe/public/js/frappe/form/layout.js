@@ -441,7 +441,12 @@ frappe.ui.form.Layout = Class.extend({
 		var parent = this.frm ? this.frm.doc : null;
 
 		if(expression.substr(0,5)=='eval:') {
-			out = eval(expression.substr(5));
+			try {
+				out = eval(expression.substr(5));
+			} catch(e) {
+				frappe.throw(__('Invalid "depends_on" expression'));
+			}
+
 		} else if(expression.substr(0,3)=='fn:' && this.frm) {
 			out = this.frm.script_manager.trigger(expression.substr(3), this.doctype, this.docname);
 		} else {
@@ -549,6 +554,13 @@ frappe.ui.form.Section = Class.extend({
 		this.head.toggleClass("collapsed", hide);
 		this.indicator.toggleClass("octicon-chevron-down", hide);
 		this.indicator.toggleClass("octicon-chevron-up", !hide);
+
+		// refresh signature fields
+		this.fields_list.forEach((f) => {
+			if (f.df.fieldtype=='Signature') {
+				f.refresh();
+			}
+		});
 	},
 	has_missing_mandatory: function() {
 		var missing_mandatory = false;

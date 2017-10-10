@@ -8,10 +8,16 @@ frappe.request.url = '/';
 frappe.request.ajax_count = 0;
 frappe.request.waiting_for_ajax = [];
 
-
-
 // generic server call (call page, object)
 frappe.call = function(opts) {
+	if (typeof arguments[0]==='string') {
+		opts = {
+			method: arguments[0],
+			args: arguments[1],
+			callback: arguments[2]
+		}
+	}
+
 	if(opts.quiet) {
 		opts.no_spinner = true;
 	}
@@ -34,7 +40,7 @@ frappe.call = function(opts) {
 	var callback = function(data, response_text) {
 		if(data.task_id) {
 			// async call, subscribe
-			frappe.socket.subscribe(data.task_id, opts);
+			frappe.socketio.subscribe(data.task_id, opts);
 
 			if(opts.queued) {
 				opts.queued(data);
@@ -137,8 +143,11 @@ frappe.request.call = function(opts) {
 		500: function(xhr) {
 			frappe.utils.play_sound("error");
 			frappe.msgprint({message:__("Server Error: Please check your server logs or contact tech support."), title:__('Something went wrong'), indicator: 'red'});
-			opts.error_callback && opts.error_callback();
-			frappe.request.report_error(xhr, opts);
+			try {
+				opts.error_callback && opts.error_callback();
+			} catch (e) {
+				frappe.request.report_error(xhr, opts);
+			}
 		},
 		504: function(xhr) {
 			frappe.msgprint(__("Request Timed Out"))

@@ -10,7 +10,7 @@ import frappe.permissions
 import MySQLdb
 from frappe.model.db_query import DatabaseQuery
 from frappe import _
-from six import text_type, string_types
+from six import text_type, string_types, StringIO
 
 @frappe.whitelist()
 def get():
@@ -146,13 +146,14 @@ def export_query():
 
 		# convert to csv
 		import csv
-		from six import StringIO
+		from frappe.utils.xlsxutils import handle_html
 
 		f = StringIO()
 		writer = csv.writer(f)
 		for r in data:
 			# encode only unicode type strings and not int, floats etc.
-			writer.writerow(map(lambda v: isinstance(v, text_type) and v.encode('utf-8') or v, r))
+			writer.writerow([handle_html(frappe.as_unicode(v)).encode('utf-8') \
+				if isinstance(v, string_types) else v for v in r])
 
 		f.seek(0)
 		frappe.response['result'] = text_type(f.read(), 'utf-8')
@@ -258,7 +259,7 @@ def get_stats(stats, doctype, filters=[]):
 				stats[tag] = scrub_user_tags(tagcount)
 				stats[tag].append([_("No Tags"), frappe.get_list(doctype,
 					fields=[tag, "count(*)"],
-					filters=filters +["({0} = ',' or {0} is null)".format(tag)], as_list=True)[0][1]])
+					filters=filters +["({0} = ',' or {0} = '' or {0} is null)".format(tag)], as_list=True)[0][1]])
 			else:
 				stats[tag] = tagcount
 
@@ -268,7 +269,6 @@ def get_stats(stats, doctype, filters=[]):
 		except MySQLdb.OperationalError:
 			# raised when _user_tags column is added on the fly
 			pass
-
 	return stats
 
 @frappe.whitelist()
@@ -352,9 +352,12 @@ def get_filters_cond(doctype, filters, conditions, ignore_permissions=None, with
 			for f in filters:
 				if isinstance(f[1], string_types) and f[1][0] == '!':
 					flt.append([doctype, f[0], '!=', f[1][1:]])
+				elif isinstance(f[1], list) and \
+					f[1][0] in (">", "<", ">=", "<=", "like", "not like", "in", "not in", "between"):
+
+					flt.append([doctype, f[0], f[1][0], f[1][1]])
 				else:
-					value = frappe.db.escape(f[1]) if isinstance(f[1], string_types) else f[1]
-					flt.append([doctype, f[0], '=', value])
+					flt.append([doctype, f[0], '=', f[1]])
 
 		query = DatabaseQuery(doctype)
 		query.filters = flt

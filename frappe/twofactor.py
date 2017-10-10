@@ -12,7 +12,7 @@ from pyqrcode import create as qrcreate
 from six import StringIO
 from base64 import b64encode, b32encode
 from frappe.utils import get_url, get_datetime, time_diff_in_seconds
-from six import string_types
+from six import iteritems, string_types
 
 class ExpiredLoginException(Exception): pass
 
@@ -26,6 +26,12 @@ def toggle_two_factor_auth(state, roles=[]):
 def two_factor_is_enabled(user=None):
 	'''Returns True if 2FA is enabled.'''
 	enabled = int(frappe.db.get_value('System Settings', None, 'enable_two_factor_auth') or 0)
+	if enabled:
+		bypass_two_factor_auth = int(frappe.db.get_value('System Settings', None, 'bypass_2fa_for_retricted_ip_users') or 0)
+		if bypass_two_factor_auth:
+			restrict_ip = frappe.db.get_value("User", filters={"name": user}, fieldname="restrict_ip")
+			if restrict_ip and bypass_two_factor_auth:
+				enabled = False
 	if not user or not enabled:
 		return enabled
 	return two_factor_is_enabled_for_(user)
@@ -68,12 +74,15 @@ def cache_2fa_data(user, token, otp_secret, tmp_id):
 		frappe.cache().expire(tmp_id + '_token', expiry_time)
 	else:
 		expiry_time = 180
-	for k, v in {'_usr': user, '_pwd': pwd, '_otp_secret': otp_secret}.iteritems():
+	for k, v in iteritems({'_usr': user, '_pwd': pwd, '_otp_secret': otp_secret}):
 		frappe.cache().set("{0}{1}".format(tmp_id, k), v)
 		frappe.cache().expire("{0}{1}".format(tmp_id, k), expiry_time)
 
 def two_factor_is_enabled_for_(user):
 	'''Check if 2factor is enabled for user.'''
+	if user == "Administrator":
+		return False
+
 	if isinstance(user, string_types):
 		user = frappe.get_doc('User', user)
 
@@ -81,8 +90,7 @@ def two_factor_is_enabled_for_(user):
 	roles.append('All')
 
 	query = """select name from `tabRole` where two_factor_auth=1
-		and name in ({0}) limit 1""".format(', '.join('\"{}\"'.format(i) for \
-											i in roles))
+		and name in ({0}) limit 1""".format(', '.join('\"{}\"'.format(i) for i in roles))
 	if len(frappe.db.sql(query)) > 0:
 		return True
 
@@ -148,7 +156,6 @@ def get_verification_obj(user, token, otp_secret):
 	elif verification_method == 'Email':
 		verification_obj = process_2fa_for_email(user, token, otp_secret, otp_issuer)
 	return verification_obj
-
 
 def process_2fa_for_sms(user, token, otp_secret):
 	'''Process sms method for 2fa.'''
@@ -262,14 +269,22 @@ def send_token_via_sms(otpsecret, token=None, phone_no=None):
 		return False
 
 	hotp = pyotp.HOTP(otpsecret)
-	args = {ss.message_parameter: 'Your verification code is {}'.format(hotp.at(int(token))), ss.sms_sender_name: otp_issuer}
+	args = {
+		ss.sms_sender_name: otp_issuer,
+		ss.message_parameter: 'Your verification code is {}'.format(hotp.at(int(token)))
+	}
+
 	for d in ss.get("parameters"):
 		args[d.parameter] = d.value
 
 	args[ss.receiver_parameter] = phone_no
 
-	sms_args = {'gateway_url': ss.sms_gateway_url, 'params': args}
-	enqueue(method=send_request, queue='short', timeout=300, event=None, async=True, job_name=None, now=False, **sms_args)
+	sms_args = {
+		'params': args,
+		'gateway_url': ss.sms_gateway_url
+	}
+	enqueue(method=send_request, queue='short', timeout=300, event=None,
+		async=True, job_name=None, now=False, **sms_args)
 	return True
 
 def send_token_via_email(user, token, otp_secret, otp_issuer, subject=None, message=None):
@@ -295,8 +310,8 @@ def send_token_via_email(user, token, otp_secret, otp_issuer, subject=None, mess
 		'retry':3
 	}
 
-	enqueue(method=frappe.sendmail, queue='short',
-		timeout=300, event=None, async=True, job_name=None, now=False, **email_args)
+	enqueue(method=frappe.sendmail, queue='short', timeout=300, event=None,
+		async=True, job_name=None, now=False, **email_args)
 	return True
 
 def get_qr_svg_code(totp_uri):
@@ -344,14 +359,19 @@ def create_barcode_folder():
 def delete_qrimage(user, check_expiry=False):
 	'''Delete Qrimage when user logs in.'''
 	user_barcodes = frappe.get_all('File', {'attached_to_doctype': 'User',
-							'attached_to_name': user, 'folder': 'Home/Barcodes'})
+		'attached_to_name': user, 'folder': 'Home/Barcodes'})
+
 	for barcode in user_barcodes:
-		if check_expiry and not should_remove_barcode_image(barcode): continue
+		if check_expiry and not should_remove_barcode_image(barcode):
+			continue
 		barcode = frappe.get_doc('File', barcode.name)
 		frappe.delete_doc('File', barcode.name, ignore_permissions=True)
 
 def delete_all_barcodes_for_users():
 	'''Task to delete all barcodes for user.'''
+	if not two_factor_is_enabled():
+		return
+
 	users = frappe.get_all('User', {'enabled':1})
 	for user in users:
 		delete_qrimage(user.name, check_expiry=True)
@@ -367,4 +387,3 @@ def should_remove_barcode_image(barcode):
 
 def disable():
 	frappe.db.set_value('System Settings', None, 'enable_two_factor_auth', 0)
-

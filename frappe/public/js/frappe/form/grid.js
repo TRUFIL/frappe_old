@@ -94,15 +94,21 @@ frappe.ui.form.Grid = Class.extend({
 		this.remove_rows_button.on('click', function() {
 			var dirty = false;
 
-			me.get_selected().forEach(function(docname) {
-				me.grid_rows_by_docname[docname].remove();
-				dirty = true;
+			let tasks = [];
+
+			me.get_selected().forEach((docname) => {
+				tasks.push(() => {
+					me.grid_rows_by_docname[docname].remove();
+					dirty = true;
+				});
+				tasks.push(() => frappe.timeout(0.1));
 			});
-			if(dirty) {
-				setTimeout(function() {
-					me.refresh();
-				}, 100);
-			}
+
+			tasks.push(() => {
+				if (dirty) me.refresh();
+			});
+
+			frappe.run_serially(tasks);
 		});
 	},
 	select_row: function(name) {
@@ -164,8 +170,9 @@ frappe.ui.form.Grid = Class.extend({
 		} else {
 			// redraw
 			var _scroll_y = $(document).scrollTop();
-
 			this.make_head();
+			// to hide checkbox if grid is not editable
+			this.header_row && this.header_row.toggle_check();
 
 			if(!this.grid_rows) {
 				this.grid_rows = [];
@@ -554,6 +561,7 @@ frappe.ui.form.Grid = Class.extend({
 			me.setup_download();
 
 			// upload
+			frappe.flags.no_socketio = true;
 			$(this.wrapper).find(".grid-upload").removeClass("hide").on("click", function() {
 				frappe.prompt({fieldtype:"Attach", label:"Upload File"},
 					function(data) {
@@ -603,10 +611,11 @@ frappe.ui.form.Grid = Class.extend({
 	},
 	setup_download: function() {
 		var me = this;
+		let title = me.df.label || frappe.model.unscrub(me.df.fieldname);
 		$(this.wrapper).find(".grid-download").removeClass("hide").on("click", function() {
 			var data = [];
 			var docfields = [];
-			data.push([__("Bulk Edit {0}", [me.df.label])]);
+			data.push([__("Bulk Edit {0}", [title])]);
 			data.push([]);
 			data.push([]);
 			data.push([]);
@@ -636,7 +645,7 @@ frappe.ui.form.Grid = Class.extend({
 				data.push(row);
 			});
 
-			frappe.tools.downloadify(data, null, me.df.label);
+			frappe.tools.downloadify(data, null, title);
 			return false;
 		});
 	},
@@ -645,7 +654,7 @@ frappe.ui.form.Grid = Class.extend({
 		var btn = this.custom_buttons[label];
 		if(!btn) {
 			btn = $('<button class="btn btn-default btn-xs btn-custom">' + label + '</button>')
-				.css('margin-right', '10px')
+				.css('margin-right', '4px')
 				.prependTo(this.grid_buttons)
 				.on('click', click);
 			this.custom_buttons[label] = btn;

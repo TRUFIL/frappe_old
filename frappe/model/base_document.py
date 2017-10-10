@@ -2,7 +2,7 @@
 # MIT License. See license.txt
 
 from __future__ import unicode_literals
-from six import reraise as raise_, iteritems, string_types
+from six import iteritems, string_types
 import frappe, sys
 from frappe import _
 from frappe.utils import (cint, flt, now, cstr, strip_html, getdate, get_datetime, to_timedelta,
@@ -307,8 +307,7 @@ class BaseDocument(object):
 						return
 
 					frappe.msgprint(_("Duplicate name {0} {1}").format(self.doctype, self.name))
-					traceback = sys.exc_info()[2]
-					raise_(frappe.DuplicateEntryError, (self.doctype, self.name, e), traceback)
+					raise frappe.DuplicateEntryError(self.doctype, self.name, e)
 
 				elif "Duplicate" in cstr(e.args[1]):
 					# unique constraint
@@ -361,40 +360,7 @@ class BaseDocument(object):
 		frappe.msgprint(_("{0} must be unique".format(label or fieldname)))
 
 		# this is used to preserve traceback
-		raise_(frappe.UniqueValidationError, (self.doctype, self.name, e), traceback)
-
-	def db_set(self, fieldname, value=None, update_modified=True):
-		'''Set a value in the document object, update the timestamp and update the database.
-
-		WARNING: This method does not trigger controller validations and should
-		be used very carefully.
-
-		:param fieldname: fieldname of the property to be updated, or a {"field":"value"} dictionary
-		:param value: value of the property to be updated
-		:param update_modified: default True. updates the `modified` and `modified_by` properties
-		'''
-		if isinstance(fieldname, dict):
-			self.update(fieldname)
-		else:
-			self.set(fieldname, value)
-
-		if update_modified and (self.doctype, self.name) not in frappe.flags.currently_saving:
-			# don't update modified timestamp if called from post save methods
-			# like on_update or on_submit
-			self.set("modified", now())
-			self.set("modified_by", frappe.session.user)
-
-		# to trigger email alert on value change
-		self.run_method('before_change')
-
-		frappe.db.set_value(self.doctype, self.name, fieldname, value,
-			self.modified, self.modified_by, update_modified=update_modified)
-
-		self.run_method('on_change')
-
-	def db_get(self, fieldname):
-		'''get database vale for this fieldname'''
-		return frappe.db.get_value(self.doctype, self.name, fieldname)
+		raise frappe.UniqueValidationError(self.doctype, self.name, e)
 
 	def update_modified(self):
 		'''Update modified timestamp'''

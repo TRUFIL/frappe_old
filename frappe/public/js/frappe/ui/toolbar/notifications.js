@@ -43,7 +43,7 @@ frappe.ui.notifications = {
 
 		// switch colour on the navbar and disable if no notifications
 		$(".navbar-new-comments")
-			.html(this.total > 20 ? '20+' : this.total)
+			.html(this.total > 99 ? '99+' : this.total)
 			.toggleClass("navbar-new-comments-true", this.total ? true : false)
 			.parent().toggleClass("disabled", this.total ? false : true);
 	},
@@ -103,7 +103,10 @@ frappe.ui.notifications = {
 	show_open_count_list: function(doctype) {
 		let filters = this.boot_info.conditions[doctype];
 		if(filters && $.isPlainObject(filters)) {
-			frappe.route_options = filters;
+			if (!frappe.route_options) {
+				frappe.route_options = {};
+			}
+			$.extend(frappe.route_options, filters);
 		}
 		let route = frappe.get_route();
 		if(route[0]==="List" && route[1]===doctype) {

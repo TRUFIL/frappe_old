@@ -168,6 +168,9 @@ def build_page(path):
 		frappe.local.path = path
 
 	context = get_context(path)
+	if context.title and "{{" in context.title:
+		title_template = context.pop('title')
+		context.title = frappe.render_template(title_template, context)
 
 	if context.source:
 		html = frappe.render_template(context.source, context)
@@ -279,7 +282,8 @@ def render_403(e, pathname):
 	frappe.local.response['context'] = dict(
 		indicator_color = 'red',
 		primary_action = '/login',
-		primary_label = _('Login')
+		primary_label = _('Login'),
+		fullpage=True
 	)
 	return render_page("message"), e.http_status_code
 

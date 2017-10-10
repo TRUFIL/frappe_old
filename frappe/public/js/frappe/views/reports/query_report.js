@@ -3,6 +3,7 @@
 
 frappe.provide("frappe.views");
 frappe.provide("frappe.query_reports");
+frappe.provide("frappe.ui.graphs");
 
 frappe.standard_pages["query-report"] = function() {
 	var wrapper = frappe.container.add_page('query-report');
@@ -45,7 +46,7 @@ frappe.views.QueryReport = Class.extend({
 		<div class="no-report-area msg-box no-border" style="display: none;"></div>\
 		<div class="chart_area" style="border-bottom: 1px solid #d1d8dd; padding: 0px 5%"></div>\
 		<div class="results" style="display: none;">\
-			<div class="result-area" style="height:400px;"></div>\
+			<div class="result-area" style="height:70vh;"></div>\
 			<button class="btn btn-secondary btn-default btn-xs expand-all hidden" style="margin: 10px;">'+__('Expand All')+'</button>\
 			<button class="btn btn-secondary btn-default btn-xs collapse-all hidden" style="margin: 10px; margin-left: 0px;">'+__('Collapse All')+'</button>\
 			<p class="help-msg alert alert-warning text-center" style="margin: 15px; margin-top: 0px;"></p>\
@@ -365,6 +366,16 @@ frappe.views.QueryReport = Class.extend({
 		}
 	},
 	refresh: function() {
+		// throttle
+		// stop refresh from being called multiple times (from triggers ?)
+		if (!this.request_refresh) {
+			this.request_refresh = setTimeout(() => {
+				this._refresh();
+				this.request_refresh = null;
+			}, 300);
+		}
+	},
+	_refresh: function() {
 		// Run
 		var me = this;
 
@@ -525,6 +536,10 @@ frappe.views.QueryReport = Class.extend({
 				df.label = __(df.label);
 				col.name = col.id = col.label = df.label;
 
+				if(df.width < 0) {
+					col.hidden = true;
+				}
+
 				return col
 			}));
 	},
@@ -576,6 +591,9 @@ frappe.views.QueryReport = Class.extend({
 			newrow.id = newrow.name ? newrow.name : ("_" + newrow._id);
 			this.data.push(newrow);
 		}
+		if(this.data.length && this.report_doc.add_total_row) {
+			this.total_row_id = this.data[this.data.length - 1].id;
+		}
 	},
 	make_dataview: function() {
 		// initialize the model
@@ -607,20 +625,18 @@ frappe.views.QueryReport = Class.extend({
 	update_totals_row: function() {
 		if(!this.report_doc.add_total_row) return;
 
-		const data_length = this.dataView.getLength();
-		const last_index = data_length - 1;
-
 		const number_fields = ['Currency', 'Float', 'Int'];
 		const fields = this.columns
 			.filter(col => number_fields.includes(col.fieldtype))
 			.map(col => col.field);
 
 		// reset numeric fields
-		let updated_totals = Object.assign({}, this.dataView.getItem(last_index));
+		let updated_totals = Object.assign({}, this.dataView.getItemById(this.total_row_id));
 		fields.map(field => {
 			updated_totals[field] = 0.0;
 		});
 
+		const data_length = this.dataView.getLength();
 		// loop all the rows except the last Total row
 		for (let i = 0; i < data_length - 1; i++) {
 			const item = this.dataView.getItem(i);
@@ -634,7 +650,7 @@ frappe.views.QueryReport = Class.extend({
 		var me = frappe.container.page.query_report;
 		if(me.report_doc.add_total_row) {
 			// always show totals row
-			if(Object.values(item).includes("'Total'")) return true;
+			if(item.id === me.total_row_id) return true;
 		}
 		for (var columnId in me.columnFilters) {
 			if (columnId !== undefined && me.columnFilters[columnId] !== "") {
@@ -807,10 +823,10 @@ frappe.views.QueryReport = Class.extend({
 			me.data.sort(function (dataRow1, dataRow2) {
 				// Totals row should always be last
 				if(me.report_doc.add_total_row) {
-					if(Object.values(dataRow1).includes("'Total'")) {
+					if(dataRow1.id === me.total_row_id) {
 						return 1;
 					}
-					if(Object.values(dataRow2).includes("'Total'")) {
+					if(dataRow2.id === me.total_row_id) {
 						return -1;
 					}
 				}

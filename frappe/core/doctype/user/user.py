@@ -42,6 +42,7 @@ class User(Document):
 
 	def before_insert(self):
 		self.flags.in_insert = True
+		throttle_user_creation()
 
 	def validate(self):
 		self.check_demo()
@@ -112,7 +113,9 @@ class User(Document):
 				self.get("roles")]):
 			return
 
-		if self.name not in STANDARD_USERS and self.user_type == "System User" and not self.get_other_system_managers():
+		if (self.name not in STANDARD_USERS and self.user_type == "System User" and not self.get_other_system_managers()
+			and cint(frappe.db.get_single_value('System Settings', 'setup_complete'))):
+
 			msgprint(_("Adding System Manager to this User as there must be atleast one System Manager"))
 			self.append("roles", {
 				"doctype": "Has Role",
@@ -746,6 +749,11 @@ def sign_up(email, full_name, redirect_to):
 		user.flags.ignore_permissions = True
 		user.insert()
 
+		# set default signup role as per Portal Settings
+		default_role = frappe.db.get_value("Portal Settings", None, "default_role")
+		if default_role:
+			user.add_roles(default_role)
+
 		if redirect_to:
 			frappe.cache().hset('redirect_after_login', user.name, redirect_to)
 
@@ -952,7 +960,7 @@ def send_token_via_email(tmp_id,token=None):
 		delayed=False, retry=3)
 
 	return True
-	
+
 @frappe.whitelist(allow_guest=True)
 def reset_otp_secret(user):
 	otp_issuer = frappe.db.get_value('System Settings', 'System Settings', 'otp_issuer_name')
@@ -964,9 +972,15 @@ def reset_otp_secret(user):
 			'recipients':user_email, 'sender':None, 'subject':'OTP Secret Reset - {}'.format(otp_issuer or "Frappe Framework"),
 			'message':'<p>Your OTP secret on {} has been reset. If you did not perform this reset and did not request it, please contact your System Administrator immediately.</p>'.format(otp_issuer or "Frappe Framework"),
 			'delayed':False,
-			'retry':3 
+			'retry':3
 		}
 		enqueue(method=frappe.sendmail, queue='short', timeout=300, event=None, async=True, job_name=None, now=False, **email_args)
 		return frappe.msgprint(_("OTP Secret has been reset. Re-registration will be required on next login."))
 	else:
 		return frappe.throw(_("OTP secret can only be reset by the Administrator."))
+
+def throttle_user_creation():
+	if frappe.flags.in_import:
+		return
+	if frappe.db.get_creation_count('User', 60) > 60:
+		frappe.throw(_('Throttled'))

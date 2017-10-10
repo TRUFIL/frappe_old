@@ -14,6 +14,13 @@
 	margin: 0px;
 	padding: 10px 0px;
 	border-bottom: 1px solid @border-color;
+
+	> div {
+		padding-right: 0px;
+	}
+	> div:last-child {
+		padding-right: 15px;
+	}
 }
 
 .form-inner-toolbar {
@@ -128,6 +135,11 @@
 }
 
 .form-heatmap {
+
+	.heatmap {
+		display: flex;
+		justify-content: center;
+	}
 
 	.heatmap-message {
 		margin-top: 10px;
@@ -608,18 +620,17 @@ h6.uppercase, .h6.uppercase {
 	right: 12px;
 }
 .signature-reset {
+	z-index: 10;
 	height: 30px;
 	width: 30px;
 	padding: 4px 0px;
 }
 
 .signature-img {
-	border: 1px solid @border-color;
 	background: #fff;
 	border-radius: 3px;
 	margin-top: 5px;
-	width: 100%;
-	max-height: 300px;
+	max-height: 150px;
 }
 
 
@@ -735,14 +746,12 @@ select.form-control {
 	margin-top: -10px;
 }
 
-.control-code {
+.control-code, .control-code.bold {
 	height: 400px;
 	font-family: Monaco, "Courier New", monospace;
-	background-color: black;
-	color: @light-yellow;
+	color: @text-color;
 	font-size: 12px;
 	line-height: 1.7em;
-	border: none;
 }
 
 .delivery-status-indicator {
@@ -751,6 +760,10 @@ select.form-control {
 	margin-left: 1px;
 	font-weight: 500;
 	color: @text-muted;
+}
+
+.attach-btn {
+	margin-top: 10px;
 }
 
 // above mobile

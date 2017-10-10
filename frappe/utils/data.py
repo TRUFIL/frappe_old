@@ -12,7 +12,7 @@ from babel.core import UnknownLocaleError
 from dateutil import parser
 from num2words import num2words
 from six.moves import html_parser as HTMLParser
-from six.moves.urllib.parse import quote
+from six.moves.urllib.parse import quote, urljoin
 from html2text import html2text
 from six import iteritems, text_type, string_types, integer_types
 
@@ -363,6 +363,18 @@ def fmt_money(amount, precision=None, currency=None):
 	if precision is None:
 		precision = number_format_precision
 
+	# 40,000 -> 40,000.00
+	# 40,000.00000 -> 40,000.00
+	# 40,000.23000 -> 40,000.23
+	if decimal_str:
+		parts = str(amount).split(decimal_str)
+		decimals = parts[1] if len(parts) > 1 else ''
+		if precision > 2:
+			if len(decimals) < 3:
+				precision = 2
+			elif len(decimals) < precision:
+				precision = len(decimals)
+
 	amount = '%.*f' % (precision, flt(amount))
 	if amount.find('.') == -1:
 		decimals = ''
@@ -642,7 +654,7 @@ def get_url(uri=None, full_address=False):
 	if frappe.conf.http_port:
 		host_name = host_name + ':' + str(frappe.conf.http_port)
 
-	url = urllib.basejoin(host_name, uri) if uri else host_name
+	url = urljoin(host_name, uri) if uri else host_name
 
 	return url
 
@@ -722,7 +734,7 @@ def get_filter(doctype, f):
 	from frappe.model import default_fields, optional_fields
 
 	if isinstance(f, dict):
-		key, value = f.items()[0]
+		key, value = next(iter(f.items()))
 		f = make_filter_tuple(doctype, key, value)
 
 	if not isinstance(f, (list, tuple)):
@@ -779,7 +791,7 @@ def expand_relative_urls(html):
 	def _expand_relative_urls(match):
 		to_expand = list(match.groups())
 
-		if not to_expand[2].startswith('mailto'):
+		if not to_expand[2].startswith('mailto') and not to_expand[2].startswith('data:'):
 			if not to_expand[2].startswith("/"):
 				to_expand[2] = "/" + to_expand[2]
 			to_expand.insert(2, url)

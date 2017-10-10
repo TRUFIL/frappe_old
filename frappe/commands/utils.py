@@ -4,16 +4,18 @@ import json, os, sys
 from distutils.spawn import find_executable
 import frappe
 from frappe.commands import pass_context, get_site
+from frappe.utils import update_progress_bar
 
 @click.command('build')
 @click.option('--make-copy', is_flag=True, default=False, help='Copy the files instead of symlinking')
+@click.option('--restore', is_flag=True, default=False, help='Copy the files instead of symlinking with force')
 @click.option('--verbose', is_flag=True, default=False, help='Verbose')
-def build(make_copy=False, verbose=False):
+def build(make_copy=False, restore = False, verbose=False):
 	"Minify + concatenate JS and CSS files, build translations"
 	import frappe.build
 	import frappe
 	frappe.init('')
-	frappe.build.bundle(False, make_copy=make_copy, verbose=verbose)
+	frappe.build.bundle(False, make_copy=make_copy, restore = restore, verbose=verbose)
 
 @click.command('watch')
 def watch():
@@ -344,6 +346,26 @@ def run_ui_tests(context, app=None, test=False, profile=False):
 	if os.environ.get('CI'):
 		sys.exit(ret)
 
+@click.command('run-setup-wizard-ui-test')
+@click.option('--app', help="App to run tests on, leave blank for all apps")
+@click.option('--profile', is_flag=True, default=False)
+@pass_context
+def run_setup_wizard_ui_test(context, app=None, profile=False):
+	"Run setup wizard UI test"
+	import frappe.test_runner
+
+	site = get_site(context)
+	frappe.init(site=site)
+	frappe.connect()
+
+	ret = frappe.test_runner.run_setup_wizard_ui_test(app=app, verbose=context.verbose,
+		profile=profile)
+	if len(ret.failures) == 0 and len(ret.errors) == 0:
+		ret = 0
+
+	if os.environ.get('CI'):
+		sys.exit(ret)
+
 @click.command('serve')
 @click.option('--port', default=8000)
 @click.option('--profile', is_flag=True, default=False)
@@ -360,9 +382,10 @@ def serve(context, port=None, profile=False, sites_path='.', site=None):
 	frappe.app.serve(port=port, profile=profile, site=site, sites_path='.')
 
 @click.command('request')
-@click.argument('args')
+@click.option('--args', help='arguments like `?cmd=test&key=value` or `/api/request/method?..`')
+@click.option('--path', help='path to request JSON')
 @pass_context
-def request(context, args):
+def request(context, args=None, path=None):
 	"Run a request as an admin"
 	import frappe.handler
 	import frappe.api
@@ -370,13 +393,19 @@ def request(context, args):
 		try:
 			frappe.init(site=site)
 			frappe.connect()
-			if "?" in args:
-				frappe.local.form_dict = frappe._dict([a.split("=") for a in args.split("?")[-1].split("&")])
-			else:
-				frappe.local.form_dict = frappe._dict()
+			if args:
+				if "?" in args:
+					frappe.local.form_dict = frappe._dict([a.split("=") for a in args.split("?")[-1].split("&")])
+				else:
+					frappe.local.form_dict = frappe._dict()
 
-			if args.startswith("/api/method"):
-				frappe.local.form_dict.cmd = args.split("?")[0].split("/")[-1]
+				if args.startswith("/api/method"):
+					frappe.local.form_dict.cmd = args.split("?")[0].split("/")[-1]
+			elif path:
+				with open(os.path.join('..', path), 'r') as f:
+					args = json.loads(f.read())
+
+				frappe.local.form_dict = frappe._dict(args)
 
 			frappe.handler.execute_cmd(frappe.form_dict.cmd)
 
@@ -457,6 +486,24 @@ def setup_help(context):
 		finally:
 			frappe.destroy()
 
+@click.command('rebuild-global-search')
+@pass_context
+def rebuild_global_search(context):
+	'''Setup help table in the current site (called after migrate)'''
+	from frappe.utils.global_search import (get_doctypes_with_global_search, rebuild_for_doctype)
+
+	for site in context.sites:
+		try:
+			frappe.init(site)
+			frappe.connect()
+			doctypes = get_doctypes_with_global_search()
+			for i, doctype in enumerate(doctypes):
+				rebuild_for_doctype(doctype)
+				update_progress_bar('Rebuilding Global Search', i, len(doctypes))
+
+		finally:
+			frappe.destroy()
+
 
 commands = [
 	build,
@@ -478,11 +525,13 @@ commands = [
 	reset_perms,
 	run_tests,
 	run_ui_tests,
+	run_setup_wizard_ui_test,
 	serve,
 	set_config,
 	watch,
 	_bulk_rename,
 	add_to_email_queue,
 	setup_global_help,
-	setup_help
+	setup_help,
+	rebuild_global_search
 ]

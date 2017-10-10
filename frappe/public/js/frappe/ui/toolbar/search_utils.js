@@ -51,7 +51,7 @@ frappe.search.utils = {
 			var out = {
 				route: match[1]
 			}
-			if(match[1][0]==='Form') {
+			if(match[1][0]==='Form' && match[1][2]) {
 				if(match[1][1] !== match[1][2]) {
 					out.label = __(match[1][1]) + " " + match[1][2].bold();
 					out.value = __(match[1][1]) + " " + match[1][2];
@@ -251,7 +251,13 @@ frappe.search.utils = {
 			var level = me.fuzzy_search(keywords, item);
 			if(level > 0) {
 				var module = frappe.modules[item];
-				if(module._doctype) return;
+				if (module._doctype) return;
+
+				// disallow restricted modules
+				if (frappe.boot.user.allow_modules &&
+					!frappe.boot.user.allow_modules.includes(module.module_name)) {
+					return;
+				}
 				var ret = {
 					type: "Module",
 					label: __("Open {0}", [me.bolden_match_part(__(item), keywords)]),
@@ -484,6 +490,8 @@ frappe.search.utils = {
 			// 0 - 6 for fuzzy contain
 
 		// **Specific use-case step**
+		keywords = keywords || '';
+
 		var item = __(_item || '').replace(/-/g, " ");
 
 		var ilen = item.length;

@@ -1,6 +1,6 @@
 from __future__ import unicode_literals, absolute_import, print_function
 import click
-import hashlib, os, sys
+import hashlib, os, sys, compileall
 import frappe
 from frappe import _
 from _mysql_exceptions import ProgrammingError
@@ -217,6 +217,8 @@ def migrate(context, rebuild_website=False):
 			migrate(context.verbose, rebuild_website=rebuild_website)
 		finally:
 			frappe.destroy()
+
+	compileall.compile_dir('../apps', quiet=1)
 
 @click.command('run-patch')
 @click.argument('module')
@@ -447,7 +449,7 @@ def _set_limits(context, site, limits):
 		frappe.connect()
 		new_limits = {}
 		for limit, value in limits:
-			if limit not in ('emails', 'space', 'users', 'email_group',
+			if limit not in ('daily_emails', 'emails', 'space', 'users', 'email_group',
 				'expiry', 'support_email', 'support_chat', 'upgrade_url'):
 				frappe.throw(_('Invalid limit {0}').format(limit))
 
@@ -460,7 +462,7 @@ def _set_limits(context, site, limits):
 			elif limit=='space':
 				value = float(value)
 
-			elif limit in ('users', 'emails', 'email_group'):
+			elif limit in ('users', 'emails', 'email_group', 'daily_emails'):
 				value = int(value)
 
 			new_limits[limit] = value
@@ -470,7 +472,7 @@ def _set_limits(context, site, limits):
 @click.command('clear-limits')
 @click.option('--site', help='site name')
 @click.argument('limits', nargs=-1, type=click.Choice(['emails', 'space', 'users', 'email_group',
-	'expiry', 'support_email', 'support_chat', 'upgrade_url']))
+	'expiry', 'support_email', 'support_chat', 'upgrade_url', 'daily_emails']))
 @pass_context
 def clear_limits(context, site, limits):
 	"""Clears given limit from the site config, and removes limit from site config if its empty"""

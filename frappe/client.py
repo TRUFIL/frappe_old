@@ -8,7 +8,7 @@ import frappe.model
 import frappe.utils
 import json, os
 
-from six import iteritems, string_types
+from six import iteritems, string_types, integer_types
 
 '''
 Handle RESTful requests that are mapped to the `/api/resource` route.
@@ -61,6 +61,10 @@ def get_value(doctype, fieldname, filters=None, as_dict=True, debug=False):
 
 	try:
 		filters = json.loads(filters)
+
+		if isinstance(filters, (integer_types, float)):
+			filters = frappe.as_unicode(filters)
+
 	except (TypeError, ValueError):
 		# filters are not passesd, not json
 		pass
@@ -208,7 +212,7 @@ def delete(doctype, name):
 
 	:param doctype: DocType of the document to be deleted
 	:param name: name of the document to be deleted'''
-	frappe.delete_doc(doctype, name)
+	frappe.delete_doc(doctype, name, ignore_missing=False)
 
 @frappe.whitelist()
 def set_default(key, value, parent=None):

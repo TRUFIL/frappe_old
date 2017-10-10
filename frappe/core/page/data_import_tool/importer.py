@@ -21,7 +21,8 @@ from six import text_type, string_types
 
 @frappe.whitelist()
 def upload(rows = None, submit_after_import=None, ignore_encoding_errors=False, no_email=True, overwrite=None,
-	update_only = None, ignore_links=False, pre_process=None, via_console=False, from_data_import="No"):
+	update_only = None, ignore_links=False, pre_process=None, via_console=False, from_data_import="No",
+	skip_errors = True):
 	"""upload data"""
 
 	frappe.flags.in_import = True
@@ -72,7 +73,7 @@ def upload(rows = None, submit_after_import=None, ignore_encoding_errors=False, 
 		return [], -1
 
 	def filter_empty_columns(columns):
-		empty_cols = filter(lambda x: x in ("", None), columns)
+		empty_cols = list(filter(lambda x: x in ("", None), columns))
 
 		if empty_cols:
 			if columns[-1*len(empty_cols):] == empty_cols:
@@ -93,7 +94,10 @@ def upload(rows = None, submit_after_import=None, ignore_encoding_errors=False, 
 		for i, d in enumerate(doctype_row[1:]):
 			if d not in ("~", "-"):
 				if d and doctype_row[i] in (None, '' ,'~', '-', 'DocType:'):
-					dt, parentfield = d, doctype_row[i+2] or None
+					dt, parentfield = d, None
+					# xls format truncates the row, so it may not have more columns
+					if len(doctype_row) > i+2:
+						parentfield = doctype_row[i+2]
 					doctypes.append((dt, parentfield))
 					column_idx_to_fieldname[(dt, parentfield)] = {}
 					column_idx_to_fieldtype[(dt, parentfield)] = {}
@@ -210,12 +214,12 @@ def upload(rows = None, submit_after_import=None, ignore_encoding_errors=False, 
 			# file is already attached
 			return
 
-		file = save_url(file_url, None, doctype, docname, "Home/Attachments", 0)
+		save_url(file_url, None, doctype, docname, "Home/Attachments", 0)
 
 	# header
 	if not rows:
-		from frappe.utils.file_manager import save_uploaded
-		file_doc = save_uploaded(dt=None, dn="Data Import", folder='Home', is_private=1)
+		from frappe.utils.file_manager import get_file_doc
+		file_doc = get_file_doc(dt='', dn="Data Import", folder='Home', is_private=1)
 		filename, file_extension = os.path.splitext(file_doc.file_name)
 
 		if file_extension == '.xlsx' and from_data_import == 'Yes':
@@ -338,13 +342,14 @@ def upload(rows = None, submit_after_import=None, ignore_encoding_errors=False, 
 					doc.submit()
 					log('Submitted row (#%d) %s' % (row_idx + 1, as_link(doc.doctype, doc.name)))
 		except Exception as e:
-			error = True
-			if doc:
-				frappe.errprint(doc if isinstance(doc, dict) else doc.as_dict())
-			err_msg = frappe.local.message_log and "\n\n".join(frappe.local.message_log) or cstr(e)
-			log('Error for row (#%d) %s : %s' % (row_idx + 1,
-				len(row)>1 and row[1] or "", err_msg))
-			frappe.errprint(frappe.get_traceback())
+			if not skip_errors:
+				error = True
+				if doc:
+					frappe.errprint(doc if isinstance(doc, dict) else doc.as_dict())
+				err_msg = frappe.local.message_log and "\n\n".join(frappe.local.message_log) or cstr(e)
+				log('Error for row (#%d) %s : %s' % (row_idx + 1,
+					len(row)>1 and row[1] or "", err_msg))
+				frappe.errprint(frappe.get_traceback())
 		finally:
 			frappe.local.message_log = []
 

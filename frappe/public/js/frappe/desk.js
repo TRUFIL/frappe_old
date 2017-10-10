@@ -29,7 +29,7 @@ frappe.Application = Class.extend({
 		this.startup();
 	},
 	startup: function() {
-		frappe.socket.init();
+		frappe.socketio.init();
 		frappe.model.init();
 
 		if(frappe.boot.status==='failed') {
@@ -45,7 +45,6 @@ frappe.Application = Class.extend({
 		this.make_nav_bar();
 		this.set_favicon();
 		this.setup_analytics();
-		this.setup_beforeunload();
 		frappe.ui.keys.setup();
 		this.set_rtl();
 
@@ -93,9 +92,9 @@ frappe.Application = Class.extend({
 			var dialog = frappe.msgprint({
 				message:__("The application has been updated to a new version, please refresh this page"),
 				indicator: 'green',
-				title: 'Version Updated'
+				title: __('Version Updated')
 			});
-			dialog.set_primary_action("Refresh", function() {
+			dialog.set_primary_action(__("Refresh"), function() {
 				location.reload(true);
 			});
 			dialog.get_close_btn().toggle(false);
@@ -202,7 +201,7 @@ frappe.Application = Class.extend({
 				moment.tz.add(frappe.boot.timezone_info);
 			}
 			if(frappe.boot.print_css) {
-				frappe.dom.set_style(frappe.boot.print_css)
+				frappe.dom.set_style(frappe.boot.print_css, "print-style");
 			}
 			frappe.user.name = frappe.boot.user.name;
 		} else {
@@ -261,7 +260,7 @@ frappe.Application = Class.extend({
 		$.each(frappe.boot.notification_info.open_count_doctype, function(doctype, count) {
 			if(count) {
 				$('.open-notification.global[data-doctype="'+ doctype +'"]')
-					.removeClass("hide").html(count > 20 ? "20+" : count);
+					.removeClass("hide").html(count > 99 ? "99+" : count);
 			} else {
 				$('.open-notification.global[data-doctype="'+ doctype +'"]')
 					.addClass("hide");
@@ -356,7 +355,7 @@ frappe.Application = Class.extend({
 	},
 	make_nav_bar: function() {
 		// toolbar
-		if(frappe.boot) {
+		if(frappe.boot && !frappe.boot.in_setup_wizard) {
 			frappe.frappe_toolbar = new frappe.ui.toolbar.Toolbar();
 		}
 
@@ -479,23 +478,6 @@ frappe.Application = Class.extend({
 				"$email": frappe.session.user
 			});
 		}
-	},
-
-	setup_beforeunload: function() {
-		if (frappe.defaults.get_default('in_selenium')) {
-			return;
-		}
-		window.onbeforeunload = function () {
-			if (frappe.flags.in_test) return null;
-			var unsaved_docs = [];
-			for (doctype in locals) {
-				for (name in locals[doctype]) {
-					var doc = locals[doctype][name];
-					if(doc.__unsaved) { unsaved_docs.push(doc.name); }
-				}
-			}
-			return unsaved_docs.length ? true : null;
-		};
 	},
 
 	show_notes: function() {

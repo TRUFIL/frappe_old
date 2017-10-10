@@ -33,7 +33,10 @@ def get_meta(doctype, cached=True):
 				lambda: Meta(doctype))
 		return frappe.local.meta_cache[doctype]
 	else:
-		return Meta(doctype)
+		return load_meta(doctype)
+
+def load_meta(doctype):
+	return Meta(doctype)
 
 def get_table_columns(doctype):
 	return frappe.cache().hget("table_columns", doctype,
@@ -89,6 +92,9 @@ class Meta(Document):
 	def get_select_fields(self):
 		return self.get("fields", {"fieldtype": "Select", "options":["not in",
 			["[Select]", "Loading..."]]})
+
+	def get_image_fields(self):
+		return self.get("fields", {"fieldtype": "Attach Image"})
 
 	def get_table_fields(self):
 		if not hasattr(self, "_table_fields"):

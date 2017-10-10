@@ -36,7 +36,8 @@ frappe.tests = {
 					}
 				};
 				tasks.push(task);
-				tasks.push(() => frappe.timeout(0.2));
+				tasks.push(frappe.after_ajax);
+				tasks.push(() => frappe.timeout(0.4));
 			}
 		});
 
@@ -68,7 +69,8 @@ frappe.tests = {
 							return frappe.model.set_value(grid_row.doc.doctype,
 								grid_row.doc.name, child_key, child_value[child_key]);
 						});
-						grid_value_tasks.push(() => frappe.timeout(0.2));
+						grid_value_tasks.push(frappe.after_ajax);
+						grid_value_tasks.push(() => frappe.timeout(0.4));
 					}
 				});
 
@@ -140,6 +142,12 @@ frappe.tests = {
 		// Method to check the visibility of an element
 		return $(`${tag}:contains("${text}")`).is(`:visible`);
 	},
+	/**
+	 * Clicks a button on a form.
+	 * @param {String} text - The button's text
+	 * @return {frappe.timeout}
+	 * @throws will throw an exception if a matching visible button is not found
+	 */
 	click_button: function(text) {
 		let element = $(`.btn:contains("${text}"):visible`);
 		if(!element.length) {
@@ -148,6 +156,12 @@ frappe.tests = {
 		element.click();
 		return frappe.timeout(0.5);
 	},
+	/**
+	 * Clicks a link on a form.
+	 * @param {String} text - The text of the link to be clicked
+	 * @return {frappe.timeout}
+	 * @throws will throw an exception if a link with the given text is not found
+	 */
 	click_link: function(text) {
 		let element = $(`a:contains("${text}"):visible`);
 		if(!element.length) {
@@ -156,6 +170,13 @@ frappe.tests = {
 		element.get(0).click();
 		return frappe.timeout(0.5);
 	},
+	/**
+	 * Sets the given control to the value given.
+	 * @param {String} fieldname - The Doctype's field name
+	 * @param {String} value - The value the control should be changed to
+	 * @return {frappe.timeout}
+	 * @throws will throw an exception if the field is not found or is not visible
+	 */
 	set_control: function(fieldname, value) {
 		let control = $(`.form-control[data-fieldname="${fieldname}"]:visible`);
 		if(!control.length) {
@@ -164,5 +185,18 @@ frappe.tests = {
 		control.val(value).trigger('change');
 		return frappe.timeout(0.5);
 	},
-
+	/**
+	 * Checks if given field is disabled.
+	 * @param {String} fieldname - The Doctype field name
+	 * @return {Boolean} true if condition is met
+	 * @throws will throw an exception if the field is not found or is not a form control
+	 */
+	is_disabled_field: function(fieldname){
+		let control = $(`.form-control[data-fieldname="${fieldname}"]:disabled`);
+		if(!control.length) {
+			throw `did not find any control with fieldname ${fieldname}`;
+		} else {
+			return true;
+		}
+	}
 };
