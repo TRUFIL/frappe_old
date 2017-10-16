@@ -1,0 +1,154 @@
+[
+ {
+  "docstatus": 0, 
+  "doctype": "Workflow", 
+  "document_type": "Sampling Request", 
+  "is_active": 1, 
+  "modified": "2017-10-14 12:46:19.743131", 
+  "name": "Sampling Request Workflow", 
+  "override_status": 0, 
+  "states": [
+   {
+    "allow_edit": "All", 
+    "doc_status": "0", 
+    "message": null, 
+    "state": "Draft", 
+    "update_field": "", 
+    "update_value": ""
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "0", 
+    "message": null, 
+    "state": "To Assign", 
+    "update_field": "", 
+    "update_value": ""
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "In Process", 
+    "update_field": "", 
+    "update_value": ""
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Closed", 
+    "update_field": "", 
+    "update_value": ""
+   }
+  ], 
+  "transitions": [
+   {
+    "action": "Save To Assign", 
+    "allowed": "All", 
+    "next_state": "To Assign", 
+    "state": "Draft"
+   }, 
+   {
+    "action": "Assign", 
+    "allowed": "Lab Coordinator", 
+    "next_state": "In Process", 
+    "state": "To Assign"
+   }
+  ], 
+  "workflow_name": "Sampling Request Workflow", 
+  "workflow_state_field": "workflow_state"
+ }, 
+ {
+  "docstatus": 0, 
+  "doctype": "Workflow", 
+  "document_type": "Samples", 
+  "is_active": 1, 
+  "modified": "2017-10-16 13:36:37.738336", 
+  "name": "Samples", 
+  "override_status": 0, 
+  "states": [
+   {
+    "allow_edit": "All", 
+    "doc_status": "0", 
+    "message": null, 
+    "state": "Draft", 
+    "update_field": "", 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Collected", 
+    "update_field": "", 
+    "update_value": ""
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Dispatched", 
+    "update_field": null, 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Verified", 
+    "update_field": null, 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Received", 
+    "update_field": null, 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "In Process", 
+    "update_field": null, 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Completed", 
+    "update_field": null, 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "1", 
+    "message": null, 
+    "state": "Disposed", 
+    "update_field": null, 
+    "update_value": null
+   }, 
+   {
+    "allow_edit": "Lab Coordinator", 
+    "doc_status": "2", 
+    "message": null, 
+    "state": "Cancelled", 
+    "update_field": null, 
+    "update_value": null
+   }
+  ], 
+  "transitions": [
+   {
+    "action": "Submit", 
+    "allowed": "Sampler", 
+    "next_state": "Collected", 
+    "state": "Draft"
+   }
+  ], 
+  "workflow_name": "Samples", 
+  "workflow_state_field": "status"
+ }
+]
