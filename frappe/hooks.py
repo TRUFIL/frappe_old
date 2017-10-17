@@ -66,7 +66,7 @@ email_append_to = ["Event", "ToDo", "Communication"]
 calendars = ["Event"]
 
 # fixtures = ["Custom Field"]
-fixtures = ["Custom Field", "Custom Script", "Property Setter", "Print Format", "Report", "Workflow", "Workflow State", "Workflow Action"]
+# fixtures = ["Custom Field", "Custom Script", "Property Setter", "Print Format", "Report", "Workflow", "Workflow State", "Workflow Action"]
 
 # login
 
