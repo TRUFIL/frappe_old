@@ -53,6 +53,7 @@ frappe.views.BaseList = class BaseList {
 		this.can_delete = frappe.model.can_delete(this.doctype);
 		this.can_write = frappe.model.can_write(this.doctype);
 
+		this.fields = [];
 		this.filters = [];
 		this.order_by = 'modified desc';
 
@@ -76,15 +77,12 @@ frappe.views.BaseList = class BaseList {
 	}
 
 	set_fields() {
-		this._fields = [];
-
 		let fields = [].concat(
 			frappe.model.std_fields_list,
 			this.get_fields_in_list_view(),
 			[this.meta.title_field, this.meta.image_field],
 			(this.settings.add_fields || [])
 		);
-
 		fields.forEach(f => this._add_field(f));
 	}
 
@@ -105,16 +103,14 @@ frappe.views.BaseList = class BaseList {
 
 	build_fields() {
 		// fill in missing doctype
-		this._fields = this._fields.map(f => {
+		this.fields = this.fields.map(f => {
 			if (typeof f === 'string') {
 				f = [f, this.doctype];
 			}
 			return f;
 		});
 		//de-dup
-		this._fields = this._fields.uniqBy(f => f[0] + f[1]);
-		// build this.fields
-		this.fields = this._fields.map(f => frappe.model.get_full_column_name(f[0], f[1]));
+		this.fields = this.fields.uniqBy(f => f[0] + f[1]);
 	}
 
 	_add_field(fieldname) {
@@ -135,7 +131,7 @@ frappe.views.BaseList = class BaseList {
 			return;
 		}
 
-		this._fields.push([fieldname, doctype]);
+		this.fields.push([fieldname, doctype]);
 	}
 
 	set_stats() {
@@ -304,7 +300,8 @@ frappe.views.BaseList = class BaseList {
 	}
 
 	get_fields() {
-		return this.fields;
+		// convert [fieldname, Doctype] => tabDoctype.fieldname
+		return this.fields.map(f => frappe.model.get_full_column_name(f[0], f[1]));
 	}
 
 	setup_view() {
